@@ -37,5 +37,4 @@ jobs:
       - name: Upload rendered report
         uses: actions/upload-artifact@v4
         with:
-          name: report-html
-          path: report.html
+          target: gh-pages
