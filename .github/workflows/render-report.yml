@@ -25,10 +25,10 @@ jobs:
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
-      - name: Restore renv environment
-        run: |
-          R -e 'install.packages("renv")'
-          R -e 'renv::restore()'
+      - name: Install R Dependencies
+        uses: r-lib/actions/setup-renv@v2
+        with:
+          cache-version: 2
 
       - name: Render report
         run: |
