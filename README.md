@@ -2,6 +2,8 @@
 
 Questo repository contiene una simulazione riproducibile volta a valutare la **potenza del test di Shapiro–Wilk** nel contesto tipico dei rapporti di validazione di metodi chimici, come descritto dalle linee guida **Eurachem**.
 
+Ecco il report: https://andreabz.github.io/r-shapiro_power/report.html
+
 ## Contesto
 
 Nei rapporti di validazione:
