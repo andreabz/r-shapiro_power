@@ -23,3 +23,5 @@ Thumbs.db
 # files
 *.png
 *_files/
+/.quarto/
+/docs/
