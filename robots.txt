@@ -1,0 +1,1 @@
+Sitemap: https://andreabz.github.io/r-shapiro_power/sitemap.xml
