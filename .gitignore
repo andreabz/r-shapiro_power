@@ -1,0 +1,25 @@
+# R
+.Rhistory
+.RData
+.Ruserdata
+
+# renv
+renv/library/
+renv/python/
+renv/staging/
+
+# Quarto
+.quarto/
+*_cache/
+*.log
+
+# Output
+*.html
+
+# OS
+.DS_Store
+Thumbs.db
+
+# files
+*.png
+*_files/

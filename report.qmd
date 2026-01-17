@@ -1,0 +1,194 @@
+---
+title: "Potenza dei test di normalità nel contesto dei rapporti di validazione per metodi chimici."
+format: html
+lang: it
+---
+
+## Motivazione
+
+Il documento redatto da **Eurachem**, *The Fitness for Purpose of Analytical Methods A Laboratory Guide to Method Validation and Related Topics*, sezione 5.7.3, pagina 47, indica di utilizzare 6 - 15 valori per determinare parametri prestazionali quali precisione e giustezza.
+
+Consiglia inoltre di ispezionare i dati per identificare la presenza di *outlier*. In molti contesti questo viene declinato nell'utilizzo del test di Grubbs secondo quanto indicato nella norma **UNI ISO 5725-2:2019** - *Accuratezza (giustezza e precisione) dei risultati e dei metodi di misurazione - Parte 2*, sezione 8.3.5, pagina 18.
+
+Tale test è fortemente sensibile a deviazioni dalla normalità dei dati e pertanto si utilizza il test di Shapiro-Wilk per verificare questa assunzione.
+
+Il test di Shapiro-Wilk è considerato il più potente per un numero ridotto di misure  tra i test di normalità disponibili.
+
+Con questo documento voglio evidenziare come:
+
+- il test di Shapiro–Wilk, pur essendo il più potente tra i test di normalità per piccoli campioni, non dispone di potenza sufficiente nelle condizioni operative tipiche dei rapporti di validazione dei metodi chimici,
+- la sua applicazione in questo contesto è quindi scarsamente informativa e può indurre un falso senso di sicurezza metodologica.
+
+## Metodo
+
+Si estraggono da una distribuzione uniforme e una distribuzione lognormale (la @fig-distribuzioni mostra un esempio di tali distribuzioni da confrontare con la distribuzione normale) serie di valori di numerosità variabile tra 6 e 15.
+Si ripete l'estrazione per 10000 volte e si calcola la proporzione di test che rigettano l'ipotesi nulla di normalità ($p$-value < 0.05): tale valore è la potenza del test.
+
+La potenza viene qui definita come la probabilità di rigettare correttamente l’ipotesi nulla di normalità quando i dati non sono normalmente distribuiti.
+
+```{r}
+#| label: librerie
+library(ggplot2)
+library(patchwork)
+```
+
+```{r}
+#| label: fig-distribuzioni
+#| fig-cap: "Distribuzioni testate vs normale (n=1000 per chiarezza visiva)"
+#| cache: true
+set.seed(123)
+
+# n più grande per visualizzazione
+n_vis <- 1000
+
+# distribuzione uniforme
+p1 <- ggplot(data.frame(x = runif(n_vis)), aes(x)) +
+        geom_histogram(aes(y = after_stat(density)), 
+                            bins = 15, fill = "#1b9e77", alpha = 0.7) +
+        stat_function(fun = dunif,
+                      args = list(min = 0, max = 1),
+                      color = "red",
+                      lwd = 1) +
+        labs(title = "Uniforme",
+             x = NULL,
+             y = "Densità di probabilità") +
+        theme_minimal(base_size = 14)
+
+# distribuzione lognormale
+p2 <- ggplot(data.frame(x = rlnorm(n_vis, 0, 1)), aes(x)) +
+        geom_histogram(aes(y = after_stat(density)),
+                        bins = 15,
+                        fill = "#d95f02",
+                        alpha = 0.7) +
+        stat_function(fun = dlnorm,
+                      args = list(meanlog = 0, sdlog = 1),
+                      color = "red",
+                      lwd = 1) +
+        labs(title = "Lognormale",
+             x = NULL,
+             y = "Densità di probabilità") +
+        theme_minimal(base_size = 14)
+
+# distribuzione normale (riferimento)
+p3 <- ggplot(data.frame(x = rnorm(n_vis, 0, 1)), aes(x)) +
+        geom_histogram(aes(y = after_stat(density)),
+                        bins = 15,
+                        fill = "grey70",
+                        alpha = 0.7) +
+        stat_function(fun = dnorm,
+                      args = list(mean = 0, sd = 1),
+                      color = "red",
+                      lwd = 1) +
+        labs(title = "Normale",
+             x = NULL,
+             y = "Densità di probabilità") +
+        theme_minimal(base_size = 14)
+
+p1 + p2 + p3 + plot_layout(axes = "collect") 
+```
+
+```{r}
+#| label: bootstrap
+#| warning: false
+#| message: false
+#| cache: true
+set.seed(123)
+R <- 10000     # numero di campioni bootstrap
+n_vals <- 6:15 # numero di misure simulate secondo Eurachem 
+alpha <- 0.05  # livello di significatività del test
+
+results <- data.frame(
+            n = integer(),
+            distribution = character(),
+            power = numeric()
+            )
+
+for (n in n_vals) {
+  p_unif <- replicate(R, shapiro.test(runif(n))$p.value)
+  p_lnorm <- replicate(R, shapiro.test(rlnorm(n, 0, 1))$p.value)
+  
+  # proporzione di test statisticamente significativi
+  results <- rbind(results,
+    data.frame(n = n, distribution = "Uniforme", power = mean(p_unif < alpha)),
+    data.frame(n = n, distribution = "Lognormale", power = mean(p_lnorm < alpha))
+  )
+}
+```
+
+```{r}
+#| label: n_limite
+# valore limite di n per cui
+# viene raggiunta la potenza dell'80% per
+# almeno per una distribuzione testata
+n_limite <- results |>
+  subset(power < 0.8) |>
+  aggregate(power ~ n, data = _, FUN = length) |>
+  subset(power == length(unique(results$distribution))) |>
+  _[, "n"] |> 
+  max()
+```
+
+## Risultati
+
+La @fig-results mostra come la potenza risulti <80% fino a `r n_limite` per entrambe le distribuzioni.
+
+In termini pratici, ciò significa che nelle condizioni di numerosità raccomandate dalle linee guida Eurachem il test di Shapiro–Wilk fallisce frequentemente nell’individuare deviazioni anche marcate dalla normalità.
+
+In particolare,
+
+- per il caso limite di una distribuzione lognormale con media e deviazione standard pari rispettivamente a 0 e 1, la potenza dell'80% viene raggiunta solo per serie di `r results[which(results$power > 0.8 & results$distribution == "Lognormale"), "n"]`, mentre rimane al di sotto del 70% fino a `r max(results[which(results$power < 0.7 & results$distribution == "Lognormale"), "n"])` valori.
+- per il caso limite di una distribuzione uniforme tra 0 e 1, il test non supera il valore di potenza del `r 100 * round(max(results[results$distribution == "Uniforme", "power"]), 2)`% sull'intero intervallo del numero di misure testato.
+
+```{r}
+#| label: fig-results
+#| fig-cap: "Andamento della potenza del test Shapiro-Wilk con set di dati compresi tra 6 e 15 estratti da distribuzioni uniformi e lognormali."
+ggplot(results, aes(x = n, y = power, colour = distribution)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 3) +
+  
+  geom_hline(
+    yintercept = 0.80,
+    linetype = "dashed",
+    colour = "grey40"
+  ) +
+  
+  scale_colour_manual(
+    values = c(
+      "Uniforme"   = "#1b9e77",
+      "Lognormale" = "#d95f02"
+    )
+  ) +
+  
+  scale_x_continuous(
+    breaks = sort(unique(results$n))
+  ) +
+  
+  scale_y_continuous(
+    limits = c(0, 1),
+    labels = scales::label_percent(accuracy = 1)
+  ) +
+  
+  labs(
+    title = "Potenza del test di Shapiro–Wilk per 6-15 valori",
+    subtitle = "Probabilità di rifiutare l’ipotesi di normalità (α = 0.05)",
+    x = "Numero di prove (n)",
+    y = "Potenza del test (P[p < 0.05])",
+    colour = "Distribuzione"
+  ) +
+  
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+```
+
+## Conclusioni
+
+Nel contesto della valutazione della normalità delle misure prodotte in sede di validazione da metodi di prova chimici, la verifica della normalità mediante test di Shapiro-Wilk risulta priva della potenza necessaria a tale scopo. Questo non implica che i dati siano normali, ma che il test non ha potere sufficiente per accorgersi quando non lo sono.
+
+Consiglio di evitare la verifica del test della normalità, valutando l'eventuale presenza di valori anomali mediante test robusti basati su *median absolute deviation* (MAD).
+
+Per esperienza personale, quando con un numero di valori compreso tra 6 e 15 il test di Shapiro-Wilk mi ha indicato di rigettare l'ipotesi nulla di distribuzione normale dei dati, il più delle volte si è trattato di errori di arrotondamento che facevano risultare valori simili come numericamente identici.
+
