@@ -1,5 +1,5 @@
 ---
-title: "Potenza dei test di normalità nel contesto dei rapporti di validazione per metodi chimici."
+title: "Potenza dei test di normalità nel contesto dei rapporti di validazione per metodi chimici"
 format: html
 lang: it
 ---
